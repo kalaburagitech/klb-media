@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [results, setResults] = useState<{name: string, status: 'success' | 'error', message?: string}[]>([]);
+  const [results, setResults] = useState<{name: string, status: 'success' | 'error', id?: string, message?: string}[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
