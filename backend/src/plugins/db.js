@@ -56,6 +56,9 @@ export const dbPlugin = fp(async (fastify) => {
           ALTER TABLE media_files RENAME COLUMN type TO content_type;
         END IF;
       END $$;
+
+      CREATE INDEX IF NOT EXISTS idx_media_files_user_id ON media_files(user_id);
+      CREATE INDEX IF NOT EXISTS idx_media_files_created_at ON media_files(created_at);
     `);
     fastify.log.info('Database tables initialized');
   } catch (err) {

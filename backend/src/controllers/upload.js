@@ -1,6 +1,7 @@
 import { uploadToS3 } from '../services/s3.js';
 import { randomUUID } from 'node:crypto';
 import { processVideoHLS } from '../services/video.js';
+import { isAllowedType, getMaxSize } from '../utils/validation.js';
 
 export const uploadFile = async (request, reply) => {
   const data = await request.file();
@@ -8,13 +9,20 @@ export const uploadFile = async (request, reply) => {
     return reply.status(400).send({ error: 'No file uploaded' });
   }
 
-  // Allow all file types as requested by user, but validate size
+  // Validate file type
   const filename = data.filename;
   const mimetype = data.mimetype;
-  const isVideo = mimetype.startsWith('video/');
   
-  // Size limit: 200MB for videos, 50MB for others
-  const sizeLimit = isVideo ? 200 * 1024 * 1024 : 50 * 1024 * 1024;
+  if (!isAllowedType(mimetype)) {
+    request.log.warn(`Rejected invalid file type: ${mimetype} for ${filename}`);
+    return reply.status(400).send({ 
+      error: 'Invalid file type', 
+      message: 'Only jpg, png, mp4, and pdf files are allowed' 
+    });
+  }
+
+  const isVideo = mimetype.startsWith('video/');
+  const sizeLimit = getMaxSize(mimetype);
 
   request.log.info(`Processing upload: ${filename} (${mimetype})`);
 

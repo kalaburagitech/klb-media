@@ -3,6 +3,12 @@ import { uploadFile } from '../controllers/upload.js';
 export const uploadRoutes = async (fastify) => {
   fastify.post('/', {
     preHandler: [fastify.authenticate],
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute'
+      }
+    },
     schema: {
       tags: ['upload'],
       security: [{ bearerAuth: [] }, { apiKey: [] }],

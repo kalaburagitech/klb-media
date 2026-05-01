@@ -3,6 +3,8 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
+import redis from '@fastify/redis';
+import rateLimit from '@fastify/rate-limit';
 import { dbPlugin } from './db.js';
 import { authMiddleware } from '../middlewares/auth.js';
 
@@ -12,10 +14,27 @@ export const registerPlugins = async (fastify) => {
     origin: process.env.FRONTEND_URL || '*',
   });
 
+  // Redis
+  if (process.env.REDIS_URL) {
+    await fastify.register(redis, {
+      url: process.env.REDIS_URL,
+    });
+  }
+
+  // Rate Limit
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    redis: fastify.redis,
+    allowList: ['127.0.0.1'],
+    continueExceeding: true,
+    skipOnError: true,
+  });
+
   // Multipart for file uploads
   await fastify.register(multipart, {
     limits: {
-      fileSize: 10 * 1024 * 1024, // 10MB
+      fileSize: 200 * 1024 * 1024, // 200MB cap for video
     },
   });
 
@@ -29,7 +48,7 @@ export const registerPlugins = async (fastify) => {
     openapi: {
       info: {
         title: 'KLB Media Service API',
-        description: 'Media storage and delivery platform API documentation',
+        description: 'Production-grade media storage and delivery platform',
         version: '1.0.0',
       },
       servers: [

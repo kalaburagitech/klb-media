@@ -29,25 +29,45 @@ export const getMediaById = async (request, reply) => {
   const { id } = request.params;
   const { width, quality, format } = request.query;
   
-  // Find record in DB
-  const { rows } = await request.server.db.query(
-    'SELECT * FROM media_files WHERE id = $1',
-    [id]
-  );
-
-  if (rows.length === 0) {
-    return reply.status(404).send({ error: 'Media not found' });
-  }
-
-  const media = rows[0];
-  const isImage = media.content_type.startsWith('image/');
-  
-  // Transformation key for caching
-  const transformKey = isImage && (width || quality || format) 
-    ? `transforms/${id}_w${width || 'orig'}_q${quality || '80'}.${format || 'webp'}`
-    : null;
+  const mediaKey = `media:${id}`;
+  let media;
 
   try {
+    // Try cache first
+    if (request.server.redis) {
+      const cached = await request.server.redis.get(mediaKey);
+      if (cached) {
+        media = JSON.parse(cached);
+        request.log.info(`Metadata cache hit for ${id}`);
+      }
+    }
+
+    if (!media) {
+      // Find record in DB
+      const { rows } = await request.server.db.query(
+        'SELECT * FROM media_files WHERE id = $1',
+        [id]
+      );
+
+      if (rows.length === 0) {
+        return reply.status(404).send({ error: 'Media not found' });
+      }
+
+      media = rows[0];
+
+      // Save to cache
+      if (request.server.redis) {
+        await request.server.redis.set(mediaKey, JSON.stringify(media), 'EX', 3600); // 1 hour
+      }
+    }
+
+    const isImage = media.content_type.startsWith('image/');
+    
+    // Transformation key for caching
+    const transformKey = isImage && (width || quality || format) 
+      ? `transforms/${id}_w${width || 'orig'}_q${quality || '80'}.${format || 'webp'}`
+      : null;
+
     let content;
     let contentType = media.content_type;
 
