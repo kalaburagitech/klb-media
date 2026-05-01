@@ -15,6 +15,8 @@ export const registerPlugins = async (fastify) => {
     ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
     : ['http://localhost:3000'];
 
+  fastify.log.info(`Authorized CORS origins: ${origins.join(', ')}`);
+
   await fastify.register(cors, {
     origin: origins.filter(o => o.length > 0),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
