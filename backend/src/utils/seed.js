@@ -12,12 +12,13 @@ const pool = new Pool({
 
 async function createUser(email, password) {
   try {
+    const id = crypto.randomUUID();
     const hashedPassword = await bcrypt.hash(password, 10);
     const apiKey = crypto.randomBytes(32).toString('hex');
 
     const { rows } = await pool.query(
-      'INSERT INTO media_users (email, password, api_key) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING RETURNING id, api_key',
-      [email, hashedPassword, apiKey]
+      'INSERT INTO media_users (id, email, password, api_key) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING id, api_key',
+      [id, email, hashedPassword, apiKey]
     );
 
     if (rows.length > 0) {

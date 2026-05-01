@@ -6,12 +6,13 @@ export const signup = async (request, reply) => {
 
   try {
     request.log.info(`Attempting signup for email: ${email}`);
+    const id = crypto.randomUUID();
     const hashedPassword = await bcrypt.hash(password, 10);
     const apiKey = crypto.randomBytes(32).toString('hex');
 
     const { rows } = await request.server.db.query(
-      'INSERT INTO media_users (email, password, api_key) VALUES ($1, $2, $3) RETURNING id, email, api_key',
-      [email, hashedPassword, apiKey]
+      'INSERT INTO media_users (id, email, password, api_key) VALUES ($1, $2, $3, $4) RETURNING id, email, api_key',
+      [id, email, hashedPassword, apiKey]
     );
 
     const user = rows[0];

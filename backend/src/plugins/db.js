@@ -33,7 +33,7 @@ export const dbPlugin = fp(async (fastify) => {
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS media_users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         api_key TEXT UNIQUE NOT NULL,
@@ -41,7 +41,7 @@ export const dbPlugin = fp(async (fastify) => {
       );
 
       CREATE TABLE IF NOT EXISTS media_files (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        id UUID PRIMARY KEY,
         user_id UUID REFERENCES media_users(id) ON DELETE CASCADE,
         file_name TEXT NOT NULL,
         storage_key TEXT NOT NULL,
