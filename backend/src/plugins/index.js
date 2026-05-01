@@ -12,7 +12,14 @@ import { authMiddleware } from '../middlewares/auth.js';
 export const registerPlugins = async (fastify) => {
   // CORS
   await fastify.register(cors, {
-    origin: process.env.FRONTEND_URL || '*',
+    origin: [
+      'http://localhost:3000',
+      'https://klb-media.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean),
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+    credentials: true,
   });
 
   // Custom Redis Plugin (Handles connection + logging)
