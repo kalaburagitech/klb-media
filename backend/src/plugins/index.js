@@ -11,12 +11,12 @@ import { authMiddleware } from '../middlewares/auth.js';
 
 export const registerPlugins = async (fastify) => {
   // CORS
+  const origins = process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
+    : ['http://localhost:3000'];
+
   await fastify.register(cors, {
-    origin: [
-      'http://localhost:3000',
-      'https://klb-media.vercel.app',
-      process.env.FRONTEND_URL
-    ].filter(Boolean),
+    origin: origins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
     credentials: true,
