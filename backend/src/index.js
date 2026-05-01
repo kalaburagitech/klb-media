@@ -23,14 +23,29 @@ const start = async () => {
     // Register Routes
     await registerRoutes(fastify);
 
-    const port = process.env.PORT || 5000;
+    // Root health check
+    fastify.get('/', async () => {
+      return { status: 'ok', service: 'KLB Media Service', timestamp: new Date().toISOString() };
+    });
+
+    const port = process.env.PORT || 8080;
     await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`Server listening on http://localhost:${port}`);
+    fastify.log.info(`Server listening on port ${port}`);
   } catch (err) {
+    console.error('CRITICAL STARTUP ERROR:', err);
     fastify.log.error(err);
     process.exit(1);
   }
 };
+
+// Global error handlers
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
 
 // Graceful shutdown
 const signals = ['SIGINT', 'SIGTERM'];
