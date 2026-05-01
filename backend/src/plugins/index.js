@@ -6,6 +6,7 @@ import multipart from '@fastify/multipart';
 import redis from '@fastify/redis';
 import rateLimit from '@fastify/rate-limit';
 import { dbPlugin } from './db.js';
+import { redisPlugin } from './redis.js';
 import { authMiddleware } from '../middlewares/auth.js';
 
 export const registerPlugins = async (fastify) => {
@@ -14,12 +15,8 @@ export const registerPlugins = async (fastify) => {
     origin: process.env.FRONTEND_URL || '*',
   });
 
-  // Redis
-  if (process.env.REDIS_URL) {
-    await fastify.register(redis, {
-      url: process.env.REDIS_URL,
-    });
-  }
+  // Custom Redis Plugin (Handles connection + logging)
+  await fastify.register(redisPlugin);
 
   // Rate Limit
   await fastify.register(rateLimit, {
