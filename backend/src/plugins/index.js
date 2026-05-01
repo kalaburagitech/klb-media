@@ -50,6 +50,10 @@ export const registerPlugins = async (fastify) => {
       },
       servers: [
         {
+          url: `https://klb-media-production.up.railway.app`,
+          description: 'Production server',
+        },
+        {
           url: `http://localhost:${process.env.PORT || 5000}`,
           description: 'Development server',
         },

@@ -20,7 +20,7 @@ const navItems = [
   { name: 'Upload', href: '/dashboard/upload', icon: Upload },
   { name: 'Media Library', href: '/dashboard/media', icon: Library },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-  { name: 'API Docs', href: 'http://localhost:5000/docs', icon: BookOpen, external: true },
+  { name: 'API Docs', href: 'https://klb-media-production.up.railway.app/docs', icon: BookOpen, external: true },
 ];
 
 export default function Sidebar() {
