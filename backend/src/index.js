@@ -4,7 +4,7 @@ import { registerPlugins } from './plugins/index.js';
 import { registerRoutes } from './routes/index.js';
 
 const fastify = Fastify({
-  logger: {
+  logger: process.env.NODE_ENV === 'development' ? {
     transport: {
       target: 'pino-pretty',
       options: {
@@ -12,7 +12,7 @@ const fastify = Fastify({
         ignore: 'pid,hostname',
       },
     },
-  },
+  } : true,
 });
 
 const start = async () => {

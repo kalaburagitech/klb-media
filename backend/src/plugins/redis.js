@@ -12,8 +12,13 @@ export const redisPlugin = fp(async (fastify) => {
       url: process.env.REDIS_URL,
     });
     
-    // Test connection
-    await fastify.redis.ping();
+    // Test connection with timeout
+    const pingPromise = fastify.redis.ping();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Redis ping timeout')), 5000)
+    );
+    
+    await Promise.race([pingPromise, timeoutPromise]);
     fastify.log.info('Connected to Redis');
   } catch (err) {
     fastify.log.error('Failed to connect to Redis: ' + err.message);
