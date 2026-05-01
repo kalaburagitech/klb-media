@@ -16,7 +16,7 @@ export const registerPlugins = async (fastify) => {
     : ['http://localhost:3000'];
 
   await fastify.register(cors, {
-    origin: origins,
+    origin: origins.filter(o => o.length > 0),
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
     credentials: true,
@@ -26,14 +26,19 @@ export const registerPlugins = async (fastify) => {
   await fastify.register(redisPlugin);
 
   // Rate Limit
-  await fastify.register(rateLimit, {
+  const rateLimitOpts = {
     max: 100,
     timeWindow: '1 minute',
-    redis: fastify.redis,
     allowList: ['127.0.0.1'],
     continueExceeding: true,
     skipOnError: true,
-  });
+  };
+
+  if (fastify.redis) {
+    rateLimitOpts.redis = fastify.redis;
+  }
+
+  await fastify.register(rateLimit, rateLimitOpts);
 
   // Multipart for file uploads
   await fastify.register(multipart, {
