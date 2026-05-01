@@ -25,9 +25,13 @@ export const dbPlugin = fp(async (fastify) => {
 
   // Initial tables creation
   try {
-    await pool.query(`
-      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    try {
+      await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
+    } catch (e) {
+      fastify.log.warn('Could not create pgcrypto extension, might already exist or permission denied: ' + e.message);
+    }
 
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS media_users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email TEXT UNIQUE NOT NULL,
