@@ -62,7 +62,11 @@ export const login = async (request, reply) => {
     };
   } catch (err) {
     request.log.error('Login error:', err);
-    return reply.status(500).send({ error: 'Internal server error during login' });
+    return reply.status(500).send({ 
+      error: 'Internal server error during login',
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 };
 
