@@ -37,7 +37,8 @@ export const uploadFile = async (request, reply) => {
     }
 
     const id = randomUUID();
-    const { key } = await uploadToS3(buffer, id, mimetype);
+    const storageKey = `uploads/${id}`;
+    const { key } = await uploadToS3(buffer, storageKey, mimetype);
 
     await request.server.db.query(
       'INSERT INTO media_files (id, user_id, file_name, storage_key, size, content_type) VALUES ($1, $2, $3, $4, $5, $6)',

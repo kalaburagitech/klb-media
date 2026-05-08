@@ -109,7 +109,7 @@ export const getMediaById = async (request, reply) => {
         content = await transformer.toBuffer();
         
         // Save to cache (fire and forget or await?)
-        uploadToS3(content, transformKey.replace('uploads/', ''), contentType).catch(e => 
+        uploadToS3(content, transformKey, contentType).catch(e => 
           request.log.error('Failed to cache transform:', e)
         );
       }
