@@ -1,7 +1,7 @@
 # KLB Media Service
 
 A production-ready media storage and delivery platform built with Fastify and Next.js.
-
+ 
 ## 🚀 Features
 
 - **JWT Authentication**: Secure login and signup with refresh tokens.
