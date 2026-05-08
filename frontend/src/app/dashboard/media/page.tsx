@@ -38,7 +38,7 @@ export default function MediaLibrary() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://klb-gate-production.up.railway.app/api';
 
   const fetchMedia = async () => {
     try {
