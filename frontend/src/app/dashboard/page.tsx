@@ -1,64 +1,41 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import api from '@/lib/api';
+import React from 'react';
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useUser } from "@clerk/nextjs";
 import { formatBytes, cn } from '@/lib/utils';
 import { 
   FileText, 
   HardDrive, 
   Activity, 
-  Key, 
-  Copy, 
-  CheckCircle2 
+  User
 } from 'lucide-react';
 
 export default function DashboardOverview() {
-  const [stats, setStats] = useState({ total_files: 0, total_size: 0 });
-  const [user, setUser] = useState<any>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [statsRes, userRes] = await Promise.all([
-          api.get('/media/stats'),
-          api.get('/auth/me')
-        ]);
-        setStats(statsRes.data);
-        setUser(userRes.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchStats();
-  }, []);
-
-  const copyApiKey = () => {
-    if (user?.api_key) {
-      navigator.clipboard.writeText(user.api_key);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  const { user, isLoaded } = useUser();
+  const mockUser = { primaryEmailAddress: { emailAddress: "rahulbalbatti032@gmail.com" } };
+  const displayUser = user || (process.env.NODE_ENV === 'development' ? mockUser : null);
+  const stats = useQuery(api.media.getStats);
 
   const cards = [
     {
       name: 'Total Files',
-      value: stats.total_files,
+      value: stats ? stats.totalFiles : '...',
       icon: FileText,
       color: 'text-blue-400',
       bg: 'bg-blue-400/10'
     },
     {
       name: 'Storage Used',
-      value: formatBytes(parseInt(stats.total_size as any) || 0),
+      value: stats ? formatBytes(stats.totalSize) : '...',
       icon: HardDrive,
       color: 'text-emerald-400',
       bg: 'bg-emerald-400/10'
     },
     {
-      name: 'Monthly Bandwidth',
-      value: 'Coming Soon',
+      name: 'Plan',
+      value: 'Free Tier',
       icon: Activity,
       color: 'text-purple-400',
       bg: 'bg-purple-400/10'
@@ -69,7 +46,7 @@ export default function DashboardOverview() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="text-slate-400 text-lg">Welcome back to your media dashboard.</p>
+        <p className="text-slate-400 text-lg">Welcome back to your Convex-powered media dashboard.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -91,23 +68,20 @@ export default function DashboardOverview() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-blue-400 font-semibold mb-1">
-              <Key className="w-4 h-4" />
-              <span>API Credentials</span>
+              <User className="w-4 h-4" />
+              <span>User Information</span>
             </div>
-            <h2 className="text-xl font-bold">Your API Key</h2>
-            <p className="text-slate-400 max-w-md">Use this key to upload files programmatically via our API endpoints.</p>
+            <h2 className="text-xl font-bold">Profile Details</h2>
+            <p className="text-slate-400 max-w-md">Your account is managed securely via Clerk.</p>
           </div>
           
-          <div className="flex items-center gap-2 p-2 bg-slate-950 border border-slate-800 rounded-xl min-w-[300px]">
-            <code className="flex-1 px-2 text-sm text-slate-300 font-mono truncate">
-              {user?.api_key || '••••••••••••••••••••••••'}
-            </code>
-            <button 
-              onClick={copyApiKey}
-              className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white"
-            >
-              {copied ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
-            </button>
+          <div className="flex items-center gap-2 p-4 bg-slate-950 border border-slate-800 rounded-xl min-w-[300px]">
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-500 uppercase">Email</span>
+              <span className="text-sm text-slate-300 font-medium">
+                {displayUser?.primaryEmailAddress?.emailAddress || 'Loading...'}
+              </span>
+            </div>
           </div>
         </div>
       </div>

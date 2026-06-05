@@ -1,0 +1,20 @@
+- `[x]` **Phase 1: Cleanup Existing Backend**
+  - `[x]` Delete the `backend` directory entirely.
+- `[x]` **Phase 2: Convex & Clerk Setup**
+  - `[x]` Install `convex` and `@clerk/nextjs` dependencies in `frontend`.
+  - `[x]` Set up `frontend/convex/schema.ts`.
+  - `[x]` Set up `frontend/convex/auth.config.ts`.
+  - `[x]` Create Convex functions (`frontend/convex/media.ts`).
+- `[x]` **Phase 3: Frontend Refactoring (Auth & Provider)**
+  - `[x]` Delete old custom `AuthContext`.
+  - `[x]` Create `ConvexClientProvider` component.
+  - `[x]` Wrap application in `layout.tsx` with Clerk and Convex providers.
+  - `[x]` Update Login and Signup pages to use Clerk components.
+- `[x]` **Phase 4: Frontend Refactoring (Features)**
+  - `[x]` Refactor `Upload` page to use Convex `generateUploadUrl` and `saveFile`.
+  - `[x]` Refactor `Media Library` page to use Convex queries for listing and `getUrl` for downloading.
+  - `[x]` Delete old API client (`lib/api.ts`).
+- `[x]` **Phase 5: UI & Final Polish**
+  - `[x]` Ensure Shadcn UI and Tailwind CSS are properly utilized.
+  - `[x]` Verify responsiveness.
+  - `[x]` Create Walkthrough artifact.

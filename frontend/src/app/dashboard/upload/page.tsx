@@ -2,10 +2,11 @@
 
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import api from '@/lib/api';
+import { useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { 
   Upload, 
-  File, 
+  File as FileIcon, 
   X, 
   CheckCircle2, 
   AlertCircle,
@@ -18,18 +19,44 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<{name: string, status: 'success' | 'error', id?: string, message?: string}[]>([]);
 
+  const generateUploadUrl = useMutation(api.media.generateUploadUrl);
+  const saveFile = useMutation(api.media.saveFile);
+
+  const validateFile = (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    const isPdf = file.type === 'application/pdf';
+
+    if (!isImage && !isVideo && !isPdf) {
+      return { code: 'file-invalid-type', message: 'Only images, videos, and PDFs are allowed' };
+    }
+
+    if (isImage && file.size > 10 * 1024 * 1024) {
+      return { code: 'file-too-large', message: 'Image must be less than 10MB' };
+    }
+    if (isPdf && file.size > 20 * 1024 * 1024) {
+      return { code: 'file-too-large', message: 'PDF must be less than 20MB' };
+    }
+    if (isVideo && file.size > 200 * 1024 * 1024) {
+      return { code: 'file-too-large', message: 'Video must be less than 200MB' };
+    }
+
+    return null;
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(prev => [...prev, ...acceptedFiles]);
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    maxSize: 10 * 1024 * 1024, // 10MB
+    validator: validateFile,
     accept: {
-      'image/*': [],
-      'video/*': [],
-      'application/*': [],
-      'text/*': []
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/png': ['.png'],
+      'image/webp': ['.webp'],
+      'application/pdf': ['.pdf'],
+      'video/mp4': ['.mp4']
     }
   });
 
@@ -42,20 +69,37 @@ export default function UploadPage() {
     setResults([]);
     
     for (const file of files) {
-      const formData = new FormData();
-      formData.append('file', file);
-
       try {
-        const { data: uploadData } = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+        // Step 1: Get a short-lived upload URL
+        const postUrl = await generateUploadUrl();
+        
+        // Step 2: POST the file to the URL
+        const result = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
         });
-        setResults(prev => [...prev, { name: file.name, status: 'success', id: uploadData.id }]);
+
+        if (!result.ok) {
+          throw new Error(`Upload failed: ${result.statusText}`);
+        }
+
+        const { storageId } = await result.json();
+
+        // Step 3: Save the newly allocated storage id to the database
+        const mediaId = await saveFile({
+          storageId,
+          fileName: file.name,
+          size: file.size,
+          contentType: file.type,
+        });
+
+        setResults(prev => [...prev, { name: file.name, status: 'success', id: mediaId }]);
       } catch (err: any) {
-        const errorData = err.response?.data;
         setResults(prev => [...prev, { 
           name: file.name, 
           status: 'error', 
-          message: errorData?.message || errorData?.error || 'Upload failed' 
+          message: err.message || 'Upload failed' 
         }]);
       }
     }
@@ -68,7 +112,7 @@ export default function UploadPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Upload Media</h1>
-        <p className="text-slate-400 text-lg">Secure, ID-based storage for your assets.</p>
+        <p className="text-slate-400 text-lg">Secure, Convex-powered storage for your assets.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -88,7 +132,7 @@ export default function UploadPage() {
               {isDragActive ? 'Drop files here' : 'Select files or drag and drop'}
             </h3>
             <p className="text-slate-400 text-sm max-w-xs">
-              All file types accepted up to 10MB per file.
+              Images up to 10MB, PDFs up to 20MB, Videos up to 200MB.
             </p>
           </div>
 
@@ -108,7 +152,7 @@ export default function UploadPage() {
                 {files.map((file, i) => (
                   <div key={i} className="p-4 flex items-center justify-between border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors">
                     <div className="flex items-center gap-3">
-                      <File className="w-5 h-5 text-slate-500" />
+                      <FileIcon className="w-5 h-5 text-slate-500" />
                       <div className="flex flex-col">
                         <span className="text-sm font-medium truncate max-w-[200px]">{file.name}</span>
                         <span className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
