@@ -12,10 +12,11 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email === 'admin@gmail.com' && password === '@Admin123') {
+    if (email.trim() === 'admin@gmail.com' && password.trim() === '@Admin123') {
       // Set simple auth cookie valid for 7 days
       document.cookie = "klb_auth=true; path=/; max-age=" + (60 * 60 * 24 * 7);
-      router.push('/dashboard');
+      // Hard redirect to force Next.js middleware to pick up the new cookie
+      window.location.href = '/dashboard';
     } else {
       setError('Invalid email or password');
     }
