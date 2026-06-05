@@ -35,7 +35,7 @@ export default function LoginPage() {
           <h2 className="text-2xl font-bold text-white text-center mb-2">Welcome Back</h2>
           <p className="text-slate-400 text-center mb-8">Sign in to manage your media</p>
           
-          <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -47,7 +47,6 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-200 placeholder-slate-500 transition-all"
                   placeholder="Email address"
-                  required
                 />
               </div>
             </div>
@@ -63,7 +62,9 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-200 placeholder-slate-500 transition-all"
                   placeholder="Password"
-                  required
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLogin(e as any);
+                  }}
                 />
               </div>
             </div>
@@ -71,13 +72,13 @@ export default function LoginPage() {
             {error && <p className="text-red-400 text-sm text-center font-medium">{error}</p>}
 
             <button
-              type="submit"
+              onClick={handleLogin}
               className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all active:scale-[0.98]"
             >
               Sign In
               <ArrowRight className="w-5 h-5" />
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>
