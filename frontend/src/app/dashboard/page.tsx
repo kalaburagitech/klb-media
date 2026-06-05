@@ -3,7 +3,6 @@
 import React from 'react';
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { useUser } from "@clerk/nextjs";
 import { formatBytes, cn } from '@/lib/utils';
 import { 
   FileText, 
@@ -13,9 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardOverview() {
-  const { user, isLoaded } = useUser();
-  const mockUser = { primaryEmailAddress: { emailAddress: "rahulbalbatti032@gmail.com" } };
-  const displayUser = user || (process.env.NODE_ENV === 'development' ? mockUser : null);
+  const displayEmail = "admin@gmail.com";
   const stats = useQuery(api.media.getStats);
 
   const cards = [
@@ -79,7 +76,7 @@ export default function DashboardOverview() {
             <div className="flex flex-col">
               <span className="text-xs text-slate-500 uppercase">Email</span>
               <span className="text-sm text-slate-300 font-medium">
-                {displayUser?.primaryEmailAddress?.emailAddress || 'Loading...'}
+                {displayEmail}
               </span>
             </div>
           </div>

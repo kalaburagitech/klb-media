@@ -1,26 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useUser } from "@clerk/nextjs";
 import { 
   User, 
   Mail, 
   Shield, 
-  Loader2
 } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user, isLoaded } = useUser();
-  const mockUser = { primaryEmailAddress: { emailAddress: "rahulbalbatti032@gmail.com" } };
-  const displayUser = user || (process.env.NODE_ENV === 'development' ? mockUser : null);
-
-  if (!isLoaded && process.env.NODE_ENV !== 'development') {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-      </div>
-    );
-  }
+  const displayEmail = "admin@gmail.com";
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -45,7 +33,7 @@ export default function SettingsPage() {
                   <Mail className="w-4 h-4" /> Email Address
                 </label>
                 <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-200">
-                  {displayUser?.primaryEmailAddress?.emailAddress || 'Loading...'}
+                  {displayEmail}
                 </div>
               </div>
               <div className="space-y-2">

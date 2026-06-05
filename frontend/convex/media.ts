@@ -4,8 +4,6 @@ import { mutation, query } from "./_generated/server";
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -18,9 +16,7 @@ export const saveFile = mutation({
     contentType: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
-    const userId = identity?.subject || "rahulbalbatti032@gmail.com";
+    const userId = "admin-id";
 
     const mediaId = await ctx.db.insert("media", {
       userId: userId,
@@ -40,9 +36,7 @@ export const list = query({
     search: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
-    const userId = identity?.subject || "rahulbalbatti032@gmail.com";
+    const userId = "admin-id";
 
     const userFiles = await ctx.db
       .query("media")
@@ -76,8 +70,6 @@ export const list = query({
 export const getUrl = query({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
     return await ctx.storage.getUrl(args.storageId);
   },
 });
@@ -85,9 +77,7 @@ export const getUrl = query({
 export const deleteMedia = mutation({
   args: { id: v.id("media") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
-    const userId = identity?.subject || "rahulbalbatti032@gmail.com";
+    const userId = "admin-id";
 
     const media = await ctx.db.get(args.id);
     if (!media) {
@@ -109,9 +99,7 @@ export const deleteMedia = mutation({
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    // if (!identity) throw new Error("Unauthenticated call");
-    const userId = identity?.subject || "rahulbalbatti032@gmail.com";
+    const userId = "admin-id";
 
     const userFiles = await ctx.db
       .query("media")

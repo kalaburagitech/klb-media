@@ -1,20 +1,33 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)']);
-
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    if (process.env.NODE_ENV !== 'development') {
-      await auth.protect();
-    }
+export function middleware(request: NextRequest) {
+  // Allow docs and API endpoints
+  if (
+    request.nextUrl.pathname.startsWith('/docs') || 
+    request.nextUrl.pathname.startsWith('/api') || 
+    request.nextUrl.pathname.startsWith('/login')
+  ) {
+    return NextResponse.next();
   }
-});
+
+  const isAuth = request.cookies.has('klb_auth');
+  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
+
+  if (isDashboard && !isAuth) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (request.nextUrl.pathname === '/' && isAuth) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files, unless found in search params
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    // Always run for API routes
     '/(api|trpc)(.*)',
   ],
 };

@@ -2,8 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useClerk, useUser } from '@clerk/nextjs';
+import { useRouter, usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Upload, 
@@ -25,10 +24,13 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { signOut } = useClerk();
-  const { user } = useUser();
-  const mockUser = { primaryEmailAddress: { emailAddress: "rahulbalbatti032@gmail.com" } };
-  const displayUser = user || (process.env.NODE_ENV === 'development' ? mockUser : null);
+  const router = useRouter();
+  const displayUser = { primaryEmailAddress: { emailAddress: "admin@gmail.com" } };
+
+  const handleLogout = () => {
+    document.cookie = "klb_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    router.push('/login');
+  };
 
   return (
     <aside className="w-64 h-screen bg-slate-900 border-r border-slate-800 flex flex-col fixed left-0 top-0 z-40">
@@ -68,7 +70,7 @@ export default function Sidebar() {
           <p className="text-sm font-medium text-slate-200 truncate">{displayUser?.primaryEmailAddress?.emailAddress || '...'}</p>
         </div>
         <button
-          onClick={() => signOut({ redirectUrl: '/login' })}
+          onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:bg-red-500/10 hover:text-red-400 rounded-lg transition-all"
         >
           <LogOut className="w-5 h-5" />
