@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getR2Object } from "@/lib/r2-server";
 
+// Uses ReadableStream (not Uint8Array) — fixes Vercel BodyInit TypeScript error
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key");
 
@@ -16,9 +17,9 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = object.ContentType ?? "application/octet-stream";
-    const bytes = await object.Body.transformToByteArray();
+    const stream = object.Body.transformToWebStream();
 
-    return new NextResponse(Buffer.from(bytes), {
+    return new NextResponse(stream, {
       status: 200,
       headers: {
         "Content-Type": contentType,
