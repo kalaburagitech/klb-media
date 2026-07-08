@@ -43,7 +43,7 @@ export default function DashboardOverview() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="text-slate-400 text-lg">Welcome back to your Convex-powered media dashboard.</p>
+        <p className="text-slate-400 text-lg">Welcome back to your R2-powered media platform.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

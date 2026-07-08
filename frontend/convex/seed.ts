@@ -1,6 +1,7 @@
 import { action, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import { buildOriginalKey, detectMediaType } from "./lib/mediaTypes";
 
 export const populate = action({
   args: {},
@@ -9,29 +10,38 @@ export const populate = action({
     const response = await fetch("https://picsum.photos/400/300");
     const blob = await response.blob();
 
-    console.log("Generating upload URL...");
-    const uploadUrl = await ctx.storage.generateUploadUrl();
+    const userId = "mock-user-id";
+    const fileName = "sample-nature-image.jpg";
+    const tempId = crypto.randomUUID();
+    const r2Key = buildOriginalKey(userId, tempId, fileName);
 
-    console.log("Uploading dummy image to Convex Storage...");
-    const uploadResult = await fetch(uploadUrl, {
-      method: "POST",
+    console.log("Uploading to R2...");
+    const presigned = await ctx.runAction(api.r2Actions.getPresignedUploadUrl, {
+      key: r2Key,
+      contentType: blob.type,
+    });
+
+    const uploadResult = await fetch(presigned.uploadUrl, {
+      method: "PUT",
       headers: { "Content-Type": blob.type },
       body: blob,
     });
-    
+
     if (!uploadResult.ok) {
-      throw new Error(`Failed to upload to Convex Storage: ${uploadResult.statusText}`);
+      throw new Error(`Failed to upload to R2: ${uploadResult.statusText}`);
     }
 
-    const { storageId } = await uploadResult.json();
+    const publicUrl = await ctx.runAction(api.r2Actions.getPublicUrl, { key: r2Key });
 
     console.log("Saving metadata to database...");
     await ctx.runMutation(internal.seed.insertMockMedia, {
-      storageId,
-      fileName: "sample-nature-image.jpg",
+      fileName,
       size: blob.size,
       contentType: blob.type,
-      userId: "mock-user-id" // Specific ID so we can fetch it for all users
+      userId,
+      r2Key,
+      r2Bucket: presigned.bucket,
+      publicUrl,
     });
 
     console.log("Seed complete!");
@@ -41,20 +51,41 @@ export const populate = action({
 
 export const insertMockMedia = internalMutation({
   args: {
-    storageId: v.id("_storage"),
     fileName: v.string(),
     size: v.number(),
     contentType: v.string(),
     userId: v.string(),
+    r2Key: v.string(),
+    r2Bucket: v.string(),
+    publicUrl: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert("media", {
+    const now = Date.now();
+    const mediaType = detectMediaType(args.contentType);
+
+    const mediaId = await ctx.db.insert("media", {
       userId: args.userId,
       fileName: args.fileName,
-      storageId: args.storageId,
       size: args.size,
       contentType: args.contentType,
-      createdAt: Date.now(),
+      mediaType,
+      status: "ready",
+      r2Key: args.r2Key,
+      r2Bucket: args.r2Bucket,
+      publicUrl: args.publicUrl,
+      variants: [
+        {
+          label: "original",
+          r2Key: args.r2Key,
+          contentType: args.contentType,
+          format: args.fileName.split(".").pop() ?? "jpg",
+          url: args.publicUrl,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
     });
-  }
+
+    return mediaId;
+  },
 });

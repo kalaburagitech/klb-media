@@ -1,0 +1,14 @@
+name = "klb-media-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+R2_BUCKET = "klbmedia"
+
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "klbmedia"
+
+[observability]
+enabled = true

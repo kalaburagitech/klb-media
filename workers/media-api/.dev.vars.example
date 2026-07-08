@@ -1,0 +1,9 @@
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key_id
+R2_SECRET_ACCESS_KEY=your_secret_access_key
+R2_BUCKET=klbmedia
+R2_PUBLIC_BASE_URL=https://your-worker.workers.dev/cdn
+CONVEX_SITE_URL=https://your-deployment.convex.site
+TRANSCODER_URL=http://localhost:8787
+TRANSCODER_SECRET=change-me-in-production
+API_SECRET=

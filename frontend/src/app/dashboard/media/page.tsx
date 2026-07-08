@@ -20,19 +20,55 @@ import {
   Activity,
   Play,
   X,
-  Maximize2
+  Maximize2,
+  Music,
+  AlertTriangle,
+  Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { buildMediaDeliveryUrl } from '@/lib/media-url';
 import { Id } from "../../../../convex/_generated/dataModel";
+
+type MediaVariant = {
+  label: string;
+  r2Key: string;
+  contentType: string;
+  format: string;
+  width?: number;
+  height?: number;
+  url?: string;
+};
 
 interface MediaItem {
   _id: Id<"media">;
   userId: string;
   fileName: string;
-  storageId: Id<"_storage">;
   size: number;
   contentType: string;
+  mediaType: string;
+  status: string;
+  r2Key: string;
+  publicUrl?: string;
+  variants: MediaVariant[];
+  hls?: { masterKey: string; masterUrl?: string };
+  processingError?: string;
   createdAt: number;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    ready: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    processing: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    failed: 'bg-red-500/10 text-red-400 border-red-500/20',
+    uploading: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    pending: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  };
+
+  return (
+    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border", styles[status] ?? styles.pending)}>
+      {status}
+    </span>
+  );
 }
 
 function MediaCard({ 
@@ -45,11 +81,12 @@ function MediaCard({
   onDelete: (id: Id<"media">) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const fileUrl = useQuery(api.media.getUrl, { storageId: item.storageId });
+  const fileUrl = useQuery(api.media.getUrl, { id: item._id });
 
   const getIcon = (type: string) => {
     if (type.startsWith('image/')) return ImageIcon;
     if (type.startsWith('video/')) return FileVideo;
+    if (type.startsWith('audio/')) return Music;
     if (type === 'application/pdf') return FileText;
     return FileText;
   };
@@ -57,10 +94,11 @@ function MediaCard({
   const Icon = getIcon(item.contentType);
   const isImage = item.contentType.startsWith('image/');
   const isVideo = item.contentType.startsWith('video/');
+  const thumbUrl = fileUrl ?? item.publicUrl ?? null;
 
   const handleCopy = () => {
-    if (fileUrl) {
-      navigator.clipboard.writeText(fileUrl);
+    if (thumbUrl) {
+      navigator.clipboard.writeText(thumbUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -69,9 +107,9 @@ function MediaCard({
   return (
     <div className="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden hover:border-slate-700 hover:shadow-xl transition-all flex flex-col">
       <div className="aspect-video relative bg-slate-950 flex items-center justify-center overflow-hidden">
-        {isImage && fileUrl ? (
+        {isImage && thumbUrl ? (
           <img 
-            src={fileUrl} 
+            src={thumbUrl} 
             alt={item.fileName}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             loading="lazy"
@@ -83,18 +121,22 @@ function MediaCard({
         ) : (
           <Icon className="w-12 h-12 text-slate-800" />
         )}
+
+        <div className="absolute top-2 left-2">
+          <StatusBadge status={item.status} />
+        </div>
         
         <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           <button 
-            onClick={() => onPreview(item, fileUrl ?? null)}
+            onClick={() => onPreview(item, thumbUrl)}
             className="p-2 bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-lg text-white transition-all transform translate-y-2 group-hover:translate-y-0"
             title="Preview"
           >
             <Maximize2 className="w-5 h-5" />
           </button>
-          {fileUrl && (
+          {thumbUrl && (
             <button 
-              onClick={() => window.open(fileUrl, '_blank')}
+              onClick={() => window.open(thumbUrl, '_blank')}
               className="p-2 bg-white/10 backdrop-blur-md hover:bg-white/20 rounded-lg text-white transition-all transform translate-y-2 group-hover:translate-y-0 delay-75"
               title="Download Original"
             >
@@ -129,6 +171,27 @@ function MediaCard({
           </div>
         </div>
 
+        {item.variants.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            <Layers className="w-3 h-3 text-slate-500" />
+            {item.variants.slice(0, 4).map((v) => (
+              <span key={v.label} className="text-[10px] px-1.5 py-0.5 bg-slate-800 rounded text-slate-400">
+                {v.label}
+              </span>
+            ))}
+            {item.variants.length > 4 && (
+              <span className="text-[10px] text-slate-500">+{item.variants.length - 4}</span>
+            )}
+          </div>
+        )}
+
+        {item.status === 'failed' && item.processingError && (
+          <div className="flex items-start gap-1 text-[10px] text-red-400">
+            <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+            <span className="line-clamp-2">{item.processingError}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] text-slate-500 uppercase flex items-center gap-1">
@@ -161,7 +224,7 @@ export default function MediaLibrary() {
     if (!confirm('Are you sure you want to delete this file?')) return;
     try {
       await deleteMedia({ id });
-    } catch (err) {
+    } catch {
       alert('Failed to delete file');
     }
   };
@@ -171,7 +234,7 @@ export default function MediaLibrary() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold tracking-tight">Media Library</h1>
-          <p className="text-slate-400 text-lg">Serverless asset delivery.</p>
+          <p className="text-slate-400 text-lg">Cloudflare R2 — originals-only storage mode.</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -201,7 +264,7 @@ export default function MediaLibrary() {
             <ImageIcon className="w-8 h-8 text-slate-600" />
           </div>
           <h3 className="text-xl font-semibold text-slate-300">No media found</h3>
-          <p className="text-slate-500 mt-1 max-w-xs">Your library is currently empty. Upload some files to see them here.</p>
+          <p className="text-slate-500 mt-1 max-w-xs">Upload images, PDFs, or audio — stored once in R2 with no extra variants.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -216,8 +279,7 @@ export default function MediaLibrary() {
         </div>
       )}
 
-      {/* Preview Modal */}
-      {previewItem && previewItem.url && (
+      {previewItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="relative w-full max-w-5xl bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
             <button 
@@ -229,19 +291,21 @@ export default function MediaLibrary() {
             
             <div className="p-2">
               <div className="aspect-video bg-black rounded-2xl overflow-hidden flex items-center justify-center">
-                {previewItem.item.contentType.startsWith('image/') ? (
+                {previewItem.url && previewItem.item.contentType.startsWith('image/') ? (
                   <img 
                     src={previewItem.url} 
                     alt={previewItem.item.fileName}
                     className="max-w-full max-h-full object-contain"
                   />
-                ) : previewItem.item.contentType.startsWith('video/') ? (
+                ) : previewItem.url && previewItem.item.contentType.startsWith('video/') ? (
                   <video 
-                    src={previewItem.url} 
+                    src={previewItem.item.hls?.masterUrl ?? previewItem.url} 
                     controls
                     className="w-full h-full object-contain"
                   />
-                ) : previewItem.item.contentType === 'application/pdf' ? (
+                ) : previewItem.url && previewItem.item.contentType.startsWith('audio/') ? (
+                  <audio src={previewItem.url} controls className="w-full" />
+                ) : previewItem.url && previewItem.item.contentType === 'application/pdf' ? (
                   <iframe 
                     src={previewItem.url} 
                     className="w-full h-full rounded-xl"
@@ -250,25 +314,48 @@ export default function MediaLibrary() {
                 ) : (
                   <div className="flex flex-col items-center gap-4">
                     <FileText className="w-20 h-20 text-slate-700" />
-                    <p className="text-slate-400">Preview not available for this file type.</p>
+                    <p className="text-slate-400">
+                      {previewItem.item.status === 'processing' 
+                        ? 'Processing — preview available when ready.' 
+                        : 'Preview not available.'}
+                    </p>
                   </div>
                 )}
               </div>
             </div>
             
-            <div className="p-6 flex items-center justify-between">
-              <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-white">{previewItem.item.fileName}</h2>
-                <p className="text-sm text-slate-400 font-mono">{previewItem.item._id}</p>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <h2 className="text-xl font-bold text-white">{previewItem.item.fileName}</h2>
+                  <p className="text-sm text-slate-400 font-mono">{previewItem.item._id}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <StatusBadge status={previewItem.item.status} />
+                  <span className="px-3 py-1 bg-slate-800 rounded-full text-xs font-medium text-slate-300">
+                    {previewItem.item.contentType}
+                  </span>
+                  <span className="text-sm font-semibold text-blue-400">
+                    {formatBytes(previewItem.item.size)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className="px-3 py-1 bg-slate-800 rounded-full text-xs font-medium text-slate-300">
-                  {previewItem.item.contentType}
-                </span>
-                <span className="text-sm font-semibold text-blue-400">
-                  {formatBytes(previewItem.item.size)}
-                </span>
-              </div>
+
+              {previewItem.item.variants.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {previewItem.item.variants.map((variant) => (
+                    <a
+                      key={variant.label}
+                      href={variant.r2Key ? buildMediaDeliveryUrl(variant.r2Key) : (variant.url ?? '#')}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors"
+                    >
+                      {variant.label} ({variant.format})
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
