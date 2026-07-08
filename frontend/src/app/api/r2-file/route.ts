@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Empty object" }, { status: 404 });
     }
 
-    const bytes = await object.Body.transformToByteArray();
     const contentType = object.ContentType ?? "application/octet-stream";
+    const body = object.Body.transformToWebStream();
 
-    return new NextResponse(bytes, {
+    return new NextResponse(body, {
       status: 200,
       headers: {
         "Content-Type": contentType,
