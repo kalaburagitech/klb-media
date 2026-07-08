@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = object.ContentType ?? "application/octet-stream";
-    const body = object.Body.transformToWebStream();
+    const bytes = await object.Body.transformToByteArray();
 
-    return new NextResponse(body, {
+    return new NextResponse(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": contentType,
