@@ -205,21 +205,7 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     await requireSignedIn(ctx);
-    const userId = DEFAULT_USER_ID;
-
-    const userFiles = await ctx.db
-      .query("media")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
-      .collect();
-
-    const mockFiles = await ctx.db
-      .query("media")
-      .withIndex("by_user", (q) => q.eq("userId", "mock-user-id"))
-      .order("desc")
-      .collect();
-
-    let files = [...userFiles, ...mockFiles];
+    let files = await ctx.db.query("media").withIndex("by_created_at").order("desc").collect();
 
     if (args.search) {
       const searchLower = args.search.toLowerCase();
@@ -314,19 +300,7 @@ export const getStats = query({
   args: {},
   handler: async (ctx) => {
     await requireSignedIn(ctx);
-    const userId = DEFAULT_USER_ID;
-
-    const userFiles = await ctx.db
-      .query("media")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-
-    const mockFiles = await ctx.db
-      .query("media")
-      .withIndex("by_user", (q) => q.eq("userId", "mock-user-id"))
-      .collect();
-
-    const files = [...userFiles, ...mockFiles];
+    const files = await ctx.db.query("media").collect();
     const readyFiles = files.filter((f) => f.status === "ready");
     const processingFiles = files.filter((f) => f.status === "processing");
 

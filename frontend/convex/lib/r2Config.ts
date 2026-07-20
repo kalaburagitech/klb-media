@@ -49,7 +49,8 @@ export function buildPublicUrl(baseUrl: string, key: string): string {
 
 /** App proxy path — R2 S3 endpoint is not publicly readable in the browser. */
 export function buildAppDeliveryUrl(key: string): string {
-  return `/api/r2-file?key=${encodeURIComponent(key)}`;
+  const baseUrl = (process.env.MEDIA_APP_BASE_URL ?? "https://klb-media.vercel.app").replace(/\/$/, "");
+  return `${baseUrl}/api/r2-file?key=${encodeURIComponent(key)}`;
 }
 
 export function isPrivateR2EndpointUrl(url: string): boolean {
