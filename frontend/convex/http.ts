@@ -13,6 +13,34 @@ const corsHeaders = {
     "Content-Type, Authorization, X-File-Name, X-Content-Type, X-Media-Id",
 };
 
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+const ALLOWED_UPLOAD_TYPES = new Set([
+  "image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf",
+  "text/plain", "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+function isAuthorizedServiceRequest(request: Request): boolean {
+  const secret = process.env.MEDIA_SERVICE_TOKEN?.trim();
+  if (!secret) return false;
+  return request.headers.get("Authorization") === `Bearer ${secret}`;
+}
+
+function requireServiceRequest(request: Request): Response | null {
+  return isAuthorizedServiceRequest(request)
+    ? null
+    : jsonResponse({ error: "Unauthorized" }, 401);
+}
+
+function validateUpload(contentType: string, size: number): Response | null {
+  const normalized = contentType.split(";", 1)[0].trim().toLowerCase();
+  if (!ALLOWED_UPLOAD_TYPES.has(normalized)) return jsonResponse({ error: "Unsupported file type" }, 415);
+  if (!Number.isFinite(size) || size <= 0 || size > MAX_UPLOAD_BYTES) {
+    return jsonResponse({ error: "File must be between 1 byte and 25 MB" }, 413);
+  }
+  return null;
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -50,6 +78,8 @@ http.route({
   path: "/api/media",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
+    const unauthorized = requireServiceRequest(request);
+    if (unauthorized) return unauthorized;
     const url = new URL(request.url);
     const search = url.searchParams.get("search") ?? undefined;
     const status = url.searchParams.get("status") ?? undefined;
@@ -112,6 +142,8 @@ http.route({
   path: "/api/upload/init",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const unauthorized = requireServiceRequest(request);
+    if (unauthorized) return unauthorized;
     let body: {
       fileName?: string;
       size?: number;
@@ -133,15 +165,17 @@ http.route({
     if (!fileName) {
       return jsonResponse({ error: "fileName is required" }, 400);
     }
+    const invalidUpload = validateUpload(contentType, size);
+    if (invalidUpload) return invalidUpload;
 
-    const init = await ctx.runMutation(api.media.initUpload, {
+    const init = await ctx.runMutation(internal.media.initUploadFromService, {
       fileName,
       size,
       contentType,
       userId: body.userId ?? "api-user",
     });
 
-    const presigned = await ctx.runAction(api.r2Actions.getPresignedUploadUrl, {
+    const presigned = await ctx.runAction(internal.r2Actions.getPresignedUploadUrlInternal, {
       key: init.r2Key,
       contentType,
     });
@@ -169,6 +203,8 @@ http.route({
   path: "/api/upload/complete",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const unauthorized = requireServiceRequest(request);
+    if (unauthorized) return unauthorized;
     let body: { mediaId?: string; size?: number };
 
     try {
@@ -183,7 +219,7 @@ http.route({
     }
 
     try {
-      const result = await ctx.runMutation(api.media.completeUpload, {
+      const result = await ctx.runMutation(internal.media.completeUploadFromService, {
         mediaId: mediaId as Id<"media">,
         size: body.size,
       });
@@ -203,6 +239,8 @@ http.route({
   path: "/api/upload",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    const unauthorized = requireServiceRequest(request);
+    if (unauthorized) return unauthorized;
     const contentType = request.headers.get("Content-Type") || "application/octet-stream";
     const fileName =
       request.headers.get("X-File-Name") ?? `api-upload-${Date.now()}.${contentType.split("/")[1] ?? "bin"}`;
@@ -211,13 +249,15 @@ http.route({
     if (blob.size === 0) {
       return jsonResponse({ error: "Empty file" }, 400);
     }
+    const invalidUpload = validateUpload(contentType, blob.size);
+    if (invalidUpload) return invalidUpload;
 
     const userId = "api-user";
     const mediaType = detectMediaType(contentType);
     const tempId = crypto.randomUUID();
     const r2Key = buildOriginalKey(userId, tempId, fileName);
 
-    const presigned = await ctx.runAction(api.r2Actions.getPresignedUploadUrl, {
+    const presigned = await ctx.runAction(internal.r2Actions.getPresignedUploadUrlInternal, {
       key: r2Key,
       contentType,
     });
@@ -232,7 +272,7 @@ http.route({
       return jsonResponse({ error: "Failed to store file in R2" }, 500);
     }
 
-    const publicUrl = await ctx.runAction(api.r2Actions.getPublicUrl, { key: r2Key });
+    const publicUrl = await ctx.runAction(internal.r2Actions.getPublicUrlInternal, { key: r2Key });
 
     const mediaId = await ctx.runMutation(internal.media.insertFromApi, {
       fileName,

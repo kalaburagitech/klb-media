@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx } from "./_generated/server";
 import {
   buildOriginalKey,
   detectMediaType,
@@ -17,6 +17,45 @@ function resolveUserId(explicitUserId?: string): string {
   return explicitUserId ?? DEFAULT_USER_ID;
 }
 
+async function requireSignedIn(ctx: { auth: { getUserIdentity: () => Promise<unknown> } }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthorized");
+  return identity;
+}
+
+type InitUploadArgs = { fileName: string; size: number; contentType: string; userId?: string };
+async function initUploadImpl(ctx: MutationCtx, args: InitUploadArgs) {
+  const userId = resolveUserId(args.userId);
+  const mediaType = detectMediaType(args.contentType);
+  const now = Date.now();
+  const mediaId = await ctx.db.insert("media", {
+    userId, fileName: args.fileName, size: args.size, contentType: args.contentType,
+    mediaType, status: "pending", r2Key: "", r2Bucket: process.env.R2_BUCKET ?? "klbmedia",
+    variants: [], createdAt: now, updatedAt: now,
+  });
+  const r2Key = buildOriginalKey(userId, mediaId, args.fileName);
+  await ctx.db.patch(mediaId, { r2Key, status: "uploading", updatedAt: Date.now() });
+  return { mediaId, r2Key, bucket: process.env.R2_BUCKET ?? "klbmedia" };
+}
+
+type CompleteUploadArgs = { mediaId: import("./_generated/dataModel").Id<"media">; size?: number };
+async function completeUploadImpl(ctx: MutationCtx, args: CompleteUploadArgs) {
+  const media = await ctx.db.get(args.mediaId);
+  if (!media) throw new Error("Media not found");
+  const now = Date.now();
+  await ctx.db.patch(args.mediaId, { status: "processing", size: args.size ?? media.size, updatedAt: now });
+  if (shouldTranscodeMediaType(media.mediaType)) {
+    const existingJob = await ctx.db.query("processingJobs").withIndex("by_media", (q) => q.eq("mediaId", args.mediaId)).first();
+    if (!existingJob) {
+      await ctx.db.insert("processingJobs", { mediaId: args.mediaId, status: "queued", attempts: 0, maxAttempts: 5, createdAt: now, updatedAt: now });
+    }
+    await ctx.scheduler.runAfter(0, internal.processing.dispatchJob, { mediaId: args.mediaId });
+  } else {
+    await ctx.scheduler.runAfter(0, internal.processing.finalizeOriginalOnly, { mediaId: args.mediaId });
+  }
+  return { mediaId: args.mediaId, status: "processing" as const, mode: shouldTranscodeMediaType(media.mediaType) ? "transcoding" as const : "original_only" as const };
+}
+
 export const initUpload = mutation({
   args: {
     fileName: v.string(),
@@ -25,34 +64,14 @@ export const initUpload = mutation({
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = resolveUserId(args.userId);
-    const mediaType = detectMediaType(args.contentType);
-    const now = Date.now();
-
-    const mediaId = await ctx.db.insert("media", {
-      userId,
-      fileName: args.fileName,
-      size: args.size,
-      contentType: args.contentType,
-      mediaType,
-      status: "pending",
-      r2Key: "",
-      r2Bucket: process.env.R2_BUCKET ?? "klbmedia",
-      variants: [],
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    const r2Key = buildOriginalKey(userId, mediaId, args.fileName);
-
-    await ctx.db.patch(mediaId, {
-      r2Key,
-      status: "uploading",
-      updatedAt: Date.now(),
-    });
-
-    return { mediaId, r2Key, bucket: process.env.R2_BUCKET ?? "klbmedia" };
+    await requireSignedIn(ctx);
+    return initUploadImpl(ctx, args);
   },
+});
+
+export const initUploadFromService = internalMutation({
+  args: { fileName: v.string(), size: v.number(), contentType: v.string(), userId: v.optional(v.string()) },
+  handler: initUploadImpl,
 });
 
 export const completeUpload = mutation({
@@ -61,54 +80,21 @@ export const completeUpload = mutation({
     size: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const media = await ctx.db.get(args.mediaId);
-    if (!media) throw new Error("Media not found");
-
-    const now = Date.now();
-    await ctx.db.patch(args.mediaId, {
-      status: "processing",
-      size: args.size ?? media.size,
-      updatedAt: now,
-    });
-
-    if (shouldTranscodeMediaType(media.mediaType)) {
-      const existingJob = await ctx.db
-        .query("processingJobs")
-        .withIndex("by_media", (q) => q.eq("mediaId", args.mediaId))
-        .first();
-
-      if (!existingJob) {
-        await ctx.db.insert("processingJobs", {
-          mediaId: args.mediaId,
-          status: "queued",
-          attempts: 0,
-          maxAttempts: 5,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-
-      await ctx.scheduler.runAfter(0, internal.processing.dispatchJob, {
-        mediaId: args.mediaId,
-      });
-    } else {
-      await ctx.scheduler.runAfter(0, internal.processing.finalizeOriginalOnly, {
-        mediaId: args.mediaId,
-      });
-    }
-
-    return {
-      mediaId: args.mediaId,
-      status: "processing" as const,
-      mode: shouldTranscodeMediaType(media.mediaType) ? "transcoding" : "original_only",
-    };
+    await requireSignedIn(ctx);
+    return completeUploadImpl(ctx, args);
   },
+});
+
+export const completeUploadFromService = internalMutation({
+  args: { mediaId: v.id("media"), size: v.optional(v.number()) },
+  handler: completeUploadImpl,
 });
 
 /** Manually trigger video transcoding when TRANSCODING_ENABLED=true (future use). */
 export const requestVideoTranscoding = mutation({
   args: { mediaId: v.id("media") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const media = await ctx.db.get(args.mediaId);
     if (!media) throw new Error("Media not found");
     if (media.mediaType !== "video") {
@@ -218,6 +204,7 @@ export const list = query({
     mediaType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const userId = DEFAULT_USER_ID;
 
     const userFiles = await ctx.db
@@ -295,6 +282,7 @@ export const getUrl = query({
 export const deleteMedia = mutation({
   args: { id: v.id("media") },
   handler: async (ctx, args) => {
+    await requireSignedIn(ctx);
     const userId = DEFAULT_USER_ID;
     const media = await ctx.db.get(args.id);
     if (!media) throw new Error("Media not found");
@@ -325,6 +313,7 @@ export const deleteMedia = mutation({
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireSignedIn(ctx);
     const userId = DEFAULT_USER_ID;
 
     const userFiles = await ctx.db
