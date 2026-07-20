@@ -1,29 +1,10 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export function middleware(request: NextRequest) {
-  // Allow docs and API endpoints
-  if (
-    request.nextUrl.pathname.startsWith('/docs') || 
-    request.nextUrl.pathname.startsWith('/api') || 
-    request.nextUrl.pathname.startsWith('/login')
-  ) {
-    return NextResponse.next();
-  }
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
 
-  const isAuth = request.cookies.has('klb_auth');
-  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard');
-
-  if (isDashboard && !isAuth) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  if (request.nextUrl.pathname === '/' && isAuth) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  return NextResponse.next();
-}
+export default clerkMiddleware(async (auth, request) => {
+  if (isProtectedRoute(request)) await auth.protect();
+});
 
 export const config = {
   matcher: [
